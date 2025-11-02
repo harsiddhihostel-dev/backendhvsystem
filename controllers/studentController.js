@@ -1,7 +1,7 @@
 const StudentModel = require('../models/studentModel');
 const { bucket } = require('../config/firebase');
 const nodemailer = require('nodemailer');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
 
 class StudentController {
   static async uploadSignature(req, res) {
@@ -573,7 +573,10 @@ class StudentController {
       `;
 
       // Use Puppeteer to generate PDF
-      const browser = await puppeteer.launch({ headless: "new", args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+      const browser = await puppeteer.launch({
+        executablePath: '/usr/bin/chromium-browser',
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
       const page = await browser.newPage();
       await page.setContent(htmlContent);
       const pdfBuffer = await page.pdf({ format: 'A4' });
