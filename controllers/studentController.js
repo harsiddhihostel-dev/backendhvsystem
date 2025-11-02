@@ -626,7 +626,7 @@ class StudentController {
 
       // Send email using Resend
       await resend.emails.send({
-        from: 'harsiddhihostel@gmail.com',
+        from: 'noreply@hvhostel.in',
         to: student.email,
         subject: `Thank You, ${student.fullName}! Here’s Your Invoice from Harsiddhi Hostel - (${currentDate})`,
         html: `
@@ -746,7 +746,7 @@ class StudentController {
 
           // Send email using Resend
           await resend.emails.send({
-            from: 'harsiddhihostel@gmail.com',
+            from: 'noreply@hvhostel.in',
             to: student.email,
             subject: `Fees Reminder - Multiple Pending Months - Harsiddhi Hostel`,
             html: `
