@@ -3,7 +3,7 @@ const { bucket } = require('../config/firebase');
 const { Resend } = require('resend');
 const puppeteer = require('puppeteer-core');
 
-const resend = new Resend('re_JJoWWq8e_HcKyZrMG9PXqQ7b6omUqVUu7');
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 class StudentController {
   static async uploadSignature(req, res) {
