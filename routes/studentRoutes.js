@@ -4,13 +4,15 @@ const upload = require('../middleware/upload');
 const StudentController = require('../controllers/studentController');
 
 router.post('/new-admission', upload.fields([
-  { name: 'aadhaarCardFile', maxCount: 1 },
+  { name: 'aadhaarCardFrontFile', maxCount: 1 },
+  { name: 'aadhaarCardBackFile', maxCount: 1 },
   { name: 'collegeIdCardFile', maxCount: 1 },
   { name: 'passportPhoto', maxCount: 1 }
 ]), StudentController.newAdmission);
 
 router.put('/update-admission', upload.fields([
-  { name: 'aadhaarCardFile', maxCount: 1 },
+  { name: 'aadhaarCardFrontFile', maxCount: 1 },
+  { name: 'aadhaarCardBackFile', maxCount: 1 },
   { name: 'collegeIdCardFile', maxCount: 1 },
   { name: 'passportPhoto', maxCount: 1 }
 ]), StudentController.updateAdmission);
@@ -44,5 +46,6 @@ router.get('/download-masterdata-excel', StudentController.downloadMasterDataExc
 router.post('/reset-room-counters', StudentController.resetRoomCounters);
 router.post('/add-monthly-fees-status', StudentController.addMonthlyFeesStatus);
 router.post('/initialize-room-status', StudentController.initializeRoomStatus);
+router.get('/get-room-configurations', StudentController.getRoomConfigurations);
 
 module.exports = router;
