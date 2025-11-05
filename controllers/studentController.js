@@ -1,16 +1,7 @@
 const StudentModel = require('../models/studentModel');
 const { bucket } = require('../config/firebase');
-const { Resend } = require('resend');
-const puppeteer = require('puppeteer-core');
-
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-// Helper function to safely convert numbers
-const convertToSafeNumber = (value) => {
-  if (value === undefined || value === null || value === '') return 0;
-  const num = Number(value);
-  return isNaN(num) ? 0 : num;
-};
+const nodemailer = require('nodemailer');
+const puppeteer = require('puppeteer');
 
 class StudentController {
   static async uploadSignature(req, res) {
@@ -54,11 +45,11 @@ class StudentController {
       const uploadPromises = [];
 
       // Upload files if present
-      if (req.files.aadhaarCardFrontFile && req.files.aadhaarCardFrontFile[0]) {
-        const file = req.files.aadhaarCardFrontFile[0];
+      if (req.files.aadhaarCardFile && req.files.aadhaarCardFile[0]) {
+        const file = req.files.aadhaarCardFile[0];
         const uploadPromise = new Promise(async (resolve, reject) => {
           try {
-            const filename = `documents/${Date.now()}_aadhaar_front_${file.originalname}`;
+            const filename = `documents/${Date.now()}_aadhaar_${file.originalname}`;
             const firebaseFile = bucket.file(filename);
             await firebaseFile.save(file.buffer, {
               metadata: {
@@ -70,7 +61,7 @@ class StudentController {
               action: 'read',
               expires: '03-09-2491',
             });
-            req.body.aadhaarCardFrontUrl = url;
+            req.body.aadhaarCardUrl = url;
             resolve();
           } catch (error) {
             reject(error);
@@ -78,33 +69,6 @@ class StudentController {
         });
         uploadPromises.push(uploadPromise);
       }
-
-      if (req.files.aadhaarCardBackFile && req.files.aadhaarCardBackFile[0]) {
-        const file = req.files.aadhaarCardBackFile[0];
-        const uploadPromise = new Promise(async (resolve, reject) => {
-          try {
-            const filename = `documents/${Date.now()}_aadhaar_back_${file.originalname}`;
-            const firebaseFile = bucket.file(filename);
-            await firebaseFile.save(file.buffer, {
-              metadata: {
-                contentType: file.mimetype,
-              },
-              public: true,
-            });
-            const [url] = await firebaseFile.getSignedUrl({
-              action: 'read',
-              expires: '03-09-2491',
-            });
-            req.body.aadhaarCardBackUrl = url;
-            resolve();
-          } catch (error) {
-            reject(error);
-          }
-        });
-        uploadPromises.push(uploadPromise);
-      }
-
-
 
       if (req.files.collegeIdCardFile && req.files.collegeIdCardFile[0]) {
         const file = req.files.collegeIdCardFile[0];
@@ -180,8 +144,6 @@ class StudentController {
 
       // Remove file objects from req.body
       delete req.body.aadhaarCardFile;
-      delete req.body.aadhaarCardFrontFile;
-      delete req.body.aadhaarCardBackFile;
       delete req.body.collegeIdCardFile;
       delete req.body.passportPhoto;
 
@@ -195,14 +157,8 @@ class StudentController {
         req.body.dateOfBirth = `${day}-${month}-${year}`;
       }
 
-      // Convert numeric fields to integers safely
-      console.log('Raw feesAmount:', req.body.feesAmount, 'Type:', typeof req.body.feesAmount);
-      req.body.feesAmount = convertToSafeNumber(req.body.feesAmount);
-      req.body.securityDeposit = convertToSafeNumber(req.body.securityDeposit);
-      req.body.maintenanceCharge = convertToSafeNumber(req.body.maintenanceCharge);
-      req.body.registrationFees = convertToSafeNumber(req.body.registrationFees);
-      req.body.totalAmount = convertToSafeNumber(req.body.totalAmount);
-      console.log('Converted feesAmount:', req.body.feesAmount);
+      // Convert feesAmount to integer
+      req.body.feesAmount = parseInt(req.body.feesAmount) || 0;
 
       // Add default isActive: false for new admissions
       req.body.isActive = false;
@@ -210,7 +166,6 @@ class StudentController {
 
       // Save to Firestore (only masterdata for new admissions)
       const docRef = await StudentModel.addStudent(req.body);
-      console.log('Final feesAmount before model save:', req.body.feesAmount);
       res.json({ success: true, message: 'Admission added successfully', id: docRef.id });
     } catch (error) {
       console.error(error);
@@ -228,11 +183,11 @@ class StudentController {
       const uploadPromises = [];
 
       // Upload files if new file provided
-      if (req.files.aadhaarCardFrontFile && req.files.aadhaarCardFrontFile[0]) {
-        const file = req.files.aadhaarCardFrontFile[0];
+      if (req.files.aadhaarCardFile && req.files.aadhaarCardFile[0]) {
+        const file = req.files.aadhaarCardFile[0];
         const uploadPromise = new Promise(async (resolve, reject) => {
           try {
-            const filename = `documents/${Date.now()}_aadhaar_front_${file.originalname}`;
+            const filename = `documents/${Date.now()}_aadhaar_${file.originalname}`;
             const firebaseFile = bucket.file(filename);
             await firebaseFile.save(file.buffer, {
               metadata: {
@@ -244,7 +199,7 @@ class StudentController {
               action: 'read',
               expires: '03-09-2491',
             });
-            updateData.aadhaarCardFrontUrl = url;
+            updateData.aadhaarCardUrl = url;
             resolve();
           } catch (error) {
             reject(error);
@@ -252,33 +207,6 @@ class StudentController {
         });
         uploadPromises.push(uploadPromise);
       }
-
-      if (req.files.aadhaarCardBackFile && req.files.aadhaarCardBackFile[0]) {
-        const file = req.files.aadhaarCardBackFile[0];
-        const uploadPromise = new Promise(async (resolve, reject) => {
-          try {
-            const filename = `documents/${Date.now()}_aadhaar_back_${file.originalname}`;
-            const firebaseFile = bucket.file(filename);
-            await firebaseFile.save(file.buffer, {
-              metadata: {
-                contentType: file.mimetype,
-              },
-              public: true,
-            });
-            const [url] = await firebaseFile.getSignedUrl({
-              action: 'read',
-              expires: '03-09-2491',
-            });
-            updateData.aadhaarCardBackUrl = url;
-            resolve();
-          } catch (error) {
-            reject(error);
-          }
-        });
-        uploadPromises.push(uploadPromise);
-      }
-
-
 
       if (req.files.collegeIdCardFile && req.files.collegeIdCardFile[0]) {
         const file = req.files.collegeIdCardFile[0];
@@ -362,20 +290,8 @@ class StudentController {
         updateData.dateOfBirth = `${day}-${month}-${year}`;
       }
 
-      // Convert numeric fields to integers safely
-      if (updateData.feesAmount !== undefined) {
-        console.log('Raw update feesAmount:', updateData.feesAmount, 'Type:', typeof updateData.feesAmount);
-        updateData.feesAmount = convertToSafeNumber(updateData.feesAmount);
-        console.log('Converted update feesAmount:', updateData.feesAmount);
-      }
-      if (updateData.securityDeposit !== undefined) updateData.securityDeposit = convertToSafeNumber(updateData.securityDeposit);
-      if (updateData.maintenanceCharge !== undefined) updateData.maintenanceCharge = convertToSafeNumber(updateData.maintenanceCharge);
-      if (updateData.registrationFees !== undefined) updateData.registrationFees = convertToSafeNumber(updateData.registrationFees);
-      if (updateData.totalAmount !== undefined) updateData.totalAmount = convertToSafeNumber(updateData.totalAmount);
-
       // Remove file objects from updateData
-      delete updateData.aadhaarCardFrontFile;
-      delete updateData.aadhaarCardBackFile;
+      delete updateData.aadhaarCardFile;
       delete updateData.collegeIdCardFile;
       delete updateData.passportPhoto;
 
@@ -506,6 +422,8 @@ class StudentController {
       res.status(500).json({ message: error.message });
     }
   }
+
+
 
   static async getDashboardCounters(req, res) {
     try {
@@ -655,10 +573,7 @@ class StudentController {
       `;
 
       // Use Puppeteer to generate PDF
-      const browser = await puppeteer.launch({
-        executablePath: '/usr/bin/chromium-browser',
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      });
+      const browser = await puppeteer.launch({ headless: "new", args: ['--no-sandbox', '--disable-setuid-sandbox'] });
       const page = await browser.newPage();
       await page.setContent(htmlContent);
       const pdfBuffer = await page.pdf({ format: 'A4' });
@@ -697,6 +612,15 @@ class StudentController {
       // Decode base64 PDF to buffer
       const pdfBuffer = Buffer.from(pdfBase64, 'base64');
 
+      // Create email transporter
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS
+        }
+      });
+
       // Generate current date and time for filename
       const emailNow = new Date();
       const day = String(emailNow.getDate()).padStart(2, '0');
@@ -704,17 +628,17 @@ class StudentController {
       const year = emailNow.getFullYear();
       const currentDate = `${day}-${month}-${year}`; // DD-MM-YYYY format
 
-      // Send email using Resend
-      await resend.emails.send({
-        from: "noreply@hvhostel.in",
+      // Email options
+      const mailOptions = {
+        from: 'harsiddhihostel@gmail.com',
         to: student.email,
-        subject: `Thank You, ${student.fullName}! Here's Your Invoice from Harsiddhi Hostel - (${currentDate})`,
+        subject: `Thank You, ${student.fullName}! Here’s Your Invoice from Harsiddhi Hostel - (${currentDate})`,
         html: `
           <p>Dear ${student.fullName},</p>
           <br>
           <p>Please find attached your invoice from Harsiddhi  Hostel.</p>
           <p>If you have any questions or require further assistance, feel free to contact us harsiddhihostel@gmail.com.</p>
-          <p>Thank you for choosing to stay with us — we truly appreciate your trust and hope you've had a comfortable experience.</p>
+          <p>Thank you for choosing to stay with us — we truly appreciate your trust and hope you’ve had a comfortable experience.</p>
           <br>
           <p>Warm regards,</p>
           <p><strong>Harsiddhi Hostel Management</strong></p>
@@ -728,7 +652,10 @@ class StudentController {
             contentType: 'application/pdf'
           }
         ]
-      });
+      };
+
+      // Send email
+      await transporter.sendMail(mailOptions);
 
       res.json({ success: true, message: 'Invoice sent successfully to ' + student.email });
     } catch (error) {
@@ -805,6 +732,15 @@ class StudentController {
         return res.json({ success: true, message: 'No students with pending fees found' });
       }
 
+      // Create email transporter
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS
+        }
+      });
+
       let sentCount = 0;
       const failedEmails = [];
       const sentEmails = new Set(); // To prevent duplicate emails to the same address
@@ -824,9 +760,8 @@ class StudentController {
           }).join('<br>');
           const totalPending = student.pendingMonths.reduce((sum, item) => sum + (Number(item.totalAmount) || 0), 0);
 
-          // Send email using Resend
-          await resend.emails.send({
-            from: 'noreply@hvhostel.in',
+          const mailOptions = {
+            from: 'harsiddhihostel@gmail.com',
             to: student.email,
             subject: `Fees Reminder - Multiple Pending Months - Harsiddhi Hostel`,
             html: `
@@ -851,8 +786,9 @@ class StudentController {
               <p><strong>Harsiddhi Hostel Management</strong></p>
               <p>Phone: 88 66 99 66 84 | Email: <a href="mailto:harsiddhihostel@gmail.com">harsiddhihostel@gmail.com</a></p>
             `
-          });
+          };
 
+          await transporter.sendMail(mailOptions);
           sentEmails.add(student.email);
           sentCount++;
         } catch (emailError) {
@@ -900,42 +836,6 @@ class StudentController {
     } catch (error) {
       console.error(error);
       res.status(500).json({ success: false, message: error.message });
-    }
-  }
-
-  static async sendEmail(req, res) {
-    try {
-      const { to, subject, html, attachments, from } = req.body;
-      if (!to || !subject || !html) {
-        return res.status(400).json({ success: false, message: 'to, subject, and html are required' });
-      }
-
-      const emailData = {
-        from: from || "noreply@hvhostel.in",
-        to: Array.isArray(to) ? to : [to],
-        subject,
-        html
-      };
-
-      if (attachments && Array.isArray(attachments)) {
-        emailData.attachments = attachments;
-      }
-
-      const data = await resend.emails.send(emailData);
-      res.json({ success: true, message: 'Email sent successfully', data });
-    } catch (error) {
-      console.error('Error sending email:', error);
-      res.status(500).json({ success: false, message: error.message });
-    }
-  }
-
-  static async getRoomConfigurations(req, res) {
-    try {
-      const configurations = await StudentModel.getRoomConfigurations();
-      res.json({ roomConfigurations: configurations });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: error.message });
     }
   }
 }

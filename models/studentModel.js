@@ -96,8 +96,6 @@ class StudentModel {
     const { bucket } = require('../config/firebase');
     const imageUrls = [
       data.aadhaarCardUrl,
-      data.aadhaarCardFrontUrl,
-      data.aadhaarCardBackUrl,
       data.collegeIdCardUrl,
       data.passportPhotoUrl,
       data.signatureUrl
@@ -192,7 +190,7 @@ class StudentModel {
       feesStatus: {
         [currentMonthKey]: {
           status: "Not Paid",
-          feesAmount: candidateData.feesAmount || 0,
+          feesAmount: "0",
           penaltyApplied: false,
           penaltyAmount: 0,
           paidDate: null
@@ -433,7 +431,7 @@ class StudentModel {
     };
 
     // Collect all unique keys from data, excluding certain fields
-    const excludeKeys = ['signatureUrl', 'passportPhotoUrl', 'aadhaarCardUrl', 'aadhaarCardFrontUrl', 'aadhaarCardBackUrl', 'collegeIdCardUrl', 'signature', 'photo', 'aadhaarCard', 'collegeIdCard', 'feesStatus'];
+    const excludeKeys = ['signatureUrl', 'passportPhotoUrl', 'aadhaarCardUrl', 'collegeIdCardUrl', 'signature', 'photo', 'aadhaarCard', 'collegeIdCard', 'feesStatus'];
     const allKeys = new Set();
     data.forEach(item => {
       Object.keys(item).forEach(key => {
@@ -500,22 +498,12 @@ class StudentModel {
 
   static async initializeRoomStatus() {
     const roomSubOptions = {
-      1: ['2', '3 Hall', '3 Kitchen'],
+      1: ['2', '3 Left', '3 Right'],
       2: ['1 Left', '1 Center', '1 Right', '2', '3'],
-      3: ['2 Hall', '2 Bed', '2 Kitchen'],
-      4: ['2 Bed', '2 Kitchen', '3'],
-      5: ['1', '2 Bed', '2 Kitchen']
+      3: ['2 Left', '2 Center', '2 Right'],
+      4: ['2 Left', '2 Right', '3'],
+      5: ['1', '2 Left', '2 Right']
     };
-
-    // First, delete all existing roomstatus documents
-    const snapshot = await db.collection('roomstatus').get();
-    if (!snapshot.empty) {
-      const deleteBatch = db.batch();
-      snapshot.forEach(doc => {
-        deleteBatch.delete(doc.ref);
-      });
-      await deleteBatch.commit();
-    }
 
     const batch = db.batch();
     const floors = [100, 200, 300, 400]; // Represents floors 1, 2, 3, 4
@@ -526,33 +514,13 @@ class StudentModel {
         roomSubOptions[room].forEach(sub => {
           const roomNo = `${roomNum} - ${sub}`;
           const docRef = db.collection('roomstatus').doc(roomNo);
-          batch.set(docRef, { counter: 0, roomNo: roomNo });
+          batch.set(docRef, { counter: 0});
         });
       }
     });
 
     await batch.commit();
     return { message: 'Room status initialized successfully' };
-  }
-
-  static async getRoomConfigurations() {
-    const docRef = db.collection('roomconfigurations').doc('current');
-    const doc = await docRef.get();
-    if (doc.exists) {
-      return doc.data();
-    } else {
-      // If not in DB, return default updated configurations
-      const defaultConfigs = {
-        1: ['2', '3 Hall', '3 Kitchen'],
-        2: ['1 Left', '1 Center', '1 Right', '2', '3'],
-        3: ['2 Hall', '2 Bed', '2 Kitchen'],
-        4: ['2 Bed', '2 Kitchen', '3'],
-        5: ['1', '2 Bed', '2 Kitchen']
-      };
-      // Optionally, set it in DB for future use
-      await docRef.set(defaultConfigs);
-      return defaultConfigs;
-    }
   }
 
   static async addMonthlyFeesStatus() {
@@ -574,7 +542,7 @@ class StudentModel {
       if (!feesStatus[currentMonthKey]) {
         feesStatus[currentMonthKey] = {
           status: "Not Paid",
-          feesAmount: data.feesAmount || 0,
+          feesAmount: "0",
           penaltyApplied: false,
           penaltyAmount: 0,
           paidDate: null
