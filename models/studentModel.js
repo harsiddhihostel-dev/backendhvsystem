@@ -190,7 +190,7 @@ class StudentModel {
       feesStatus: {
         [currentMonthKey]: {
           status: "Not Paid",
-          feesAmount: "0",
+          feesAmount: candidateData.feesAmount || 0,
           penaltyApplied: false,
           penaltyAmount: 0,
           paidDate: null
@@ -542,7 +542,7 @@ class StudentModel {
       if (!feesStatus[currentMonthKey]) {
         feesStatus[currentMonthKey] = {
           status: "Not Paid",
-          feesAmount: "0",
+          feesAmount: candidateData.feesAmount || 0,
           penaltyApplied: false,
           penaltyAmount: 0,
           paidDate: null

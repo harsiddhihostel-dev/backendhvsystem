@@ -1,7 +1,9 @@
 const StudentModel = require('../models/studentModel');
 const { bucket } = require('../config/firebase');
-const nodemailer = require('nodemailer');
-const puppeteer = require('puppeteer');
+const { Resend } = require('resend');
+const puppeteer = require('puppeteer-core');
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 class StudentController {
   static async uploadSignature(req, res) {
@@ -573,7 +575,10 @@ class StudentController {
       `;
 
       // Use Puppeteer to generate PDF
-      const browser = await puppeteer.launch({ headless: "new", args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+      const browser = await puppeteer.launch({
+        executablePath: '/usr/bin/chromium-browser',
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
       const page = await browser.newPage();
       await page.setContent(htmlContent);
       const pdfBuffer = await page.pdf({ format: 'A4' });
@@ -612,15 +617,6 @@ class StudentController {
       // Decode base64 PDF to buffer
       const pdfBuffer = Buffer.from(pdfBase64, 'base64');
 
-      // Create email transporter
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS
-        }
-      });
-
       // Generate current date and time for filename
       const emailNow = new Date();
       const day = String(emailNow.getDate()).padStart(2, '0');
@@ -628,9 +624,9 @@ class StudentController {
       const year = emailNow.getFullYear();
       const currentDate = `${day}-${month}-${year}`; // DD-MM-YYYY format
 
-      // Email options
-      const mailOptions = {
-        from: 'harsiddhihostel@gmail.com',
+      // Send email using Resend
+      await resend.emails.send({
+        from: 'noreply@hvhostel.in',
         to: student.email,
         subject: `Thank You, ${student.fullName}! Here’s Your Invoice from Harsiddhi Hostel - (${currentDate})`,
         html: `
@@ -652,10 +648,7 @@ class StudentController {
             contentType: 'application/pdf'
           }
         ]
-      };
-
-      // Send email
-      await transporter.sendMail(mailOptions);
+      });
 
       res.json({ success: true, message: 'Invoice sent successfully to ' + student.email });
     } catch (error) {
@@ -732,15 +725,6 @@ class StudentController {
         return res.json({ success: true, message: 'No students with pending fees found' });
       }
 
-      // Create email transporter
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS
-        }
-      });
-
       let sentCount = 0;
       const failedEmails = [];
       const sentEmails = new Set(); // To prevent duplicate emails to the same address
@@ -760,8 +744,9 @@ class StudentController {
           }).join('<br>');
           const totalPending = student.pendingMonths.reduce((sum, item) => sum + (Number(item.totalAmount) || 0), 0);
 
-          const mailOptions = {
-            from: 'harsiddhihostel@gmail.com',
+          // Send email using Resend
+          await resend.emails.send({
+            from: 'noreply@hvhostel.in',
             to: student.email,
             subject: `Fees Reminder - Multiple Pending Months - Harsiddhi Hostel`,
             html: `
@@ -786,9 +771,8 @@ class StudentController {
               <p><strong>Harsiddhi Hostel Management</strong></p>
               <p>Phone: 88 66 99 66 84 | Email: <a href="mailto:harsiddhihostel@gmail.com">harsiddhihostel@gmail.com</a></p>
             `
-          };
+          });
 
-          await transporter.sendMail(mailOptions);
           sentEmails.add(student.email);
           sentCount++;
         } catch (emailError) {
